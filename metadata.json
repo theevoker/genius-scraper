@@ -1,0 +1,6 @@
+{
+  "name": "Hebrew Song Filter & Genius Scraper",
+  "description": "Interactive Hebrew song filter and Genius artist scraper with persistent JSON state and customizable filtering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
