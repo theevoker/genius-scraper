@@ -8,6 +8,8 @@ interface SongsFilterViewProps {
   onToggleSong: (index: number, newEnabled: boolean) => void;
   onBatchAction: (action: 'all_on' | 'all_off' | 'invert') => void;
   isSaving: boolean;
+  onOpenAddArtist?: () => void;
+  onOpenAddSong?: () => void;
 }
 
 export const SongsFilterView: React.FC<SongsFilterViewProps> = ({
@@ -15,7 +17,9 @@ export const SongsFilterView: React.FC<SongsFilterViewProps> = ({
   songs,
   onToggleSong,
   onBatchAction,
-  isSaving
+  isSaving,
+  onOpenAddArtist,
+  onOpenAddSong
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'on' | 'off'>('all');
@@ -48,14 +52,32 @@ export const SongsFilterView: React.FC<SongsFilterViewProps> = ({
 
   if (!selectedArtist) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-slate-200/80 m-4 sm:m-6 shadow-xs">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-slate-200/80 m-4 sm:m-6 shadow-xs max-w-2xl mx-auto my-auto">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4 shadow-2xs">
           <Music className="w-8 h-8" />
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">בחר אמן כדי לסנן את שיריו</h3>
-        <p className="text-sm text-slate-500 max-w-md">
-          בחר אמן מהתפריט הנפתח או מהחיפוש בסרגל העליון, או לחץ על "הוסף אמן" בפינה השמאלית העליונה כדי לסרוק אמן חדש מ-Genius.
+        <h3 className="text-xl font-bold text-slate-800 mb-2">אין עדיין שירים או אמנים במערכת</h3>
+        <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
+          המערכת מוכנה! הוסף אמן חדש כדי לסרוק את כל שיריו מ-Genius, או הוסף שיר בודד ישירות לקטגוריית "אחרים".
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {onOpenAddArtist && (
+            <button
+              onClick={onOpenAddArtist}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-indigo-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            >
+              <span>+ הוסף אמן מ-Genius</span>
+            </button>
+          )}
+          {onOpenAddSong && (
+            <button
+              onClick={onOpenAddSong}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md hover:shadow-emerald-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            >
+              <span>+ הוסף שיר בודד</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }

@@ -81,7 +81,9 @@ export const ArtistBar: React.FC<ArtistBarProps> = ({
                 className="w-full h-11 appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-300 rounded-xl px-4 pl-10 pr-10 text-sm font-semibold text-slate-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 transition-all truncate"
               >
                 <option value="" disabled>
-                  -- בחר אמן מתוך הרשימה ({filteredArtists.length}) --
+                  {filteredArtists.length === 0 
+                    ? '-- אין עדיין אמנים. לחץ על "הוסף אמן" --' 
+                    : `-- בחר אמן מתוך הרשימה (${filteredArtists.length}) --`}
                 </option>
                 {filteredArtists.map((artist) => {
                   const songs = filterData[artist] || [];

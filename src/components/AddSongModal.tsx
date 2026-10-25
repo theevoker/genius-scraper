@@ -189,7 +189,7 @@ export const AddSongModal: React.FC<AddSongModalProps> = ({
               )}
 
               <div className="text-xs text-slate-500 bg-slate-50 p-3.5 rounded-xl border border-slate-200 leading-relaxed">
-                <span className="font-bold text-slate-700">שים לב:</span> שיר שתבחר יתווסף אוטומטית לקטגוריית <span className="font-bold text-slate-900">"אחרים"</span>, יאוחסן ב-<code>server_filter.json</code> ויתחיל במצב כבוי (OFF) כברירת מחדל לסינון.
+                <span className="font-bold text-slate-700">שים לב:</span> שיר שתבחר יתווסף אוטומטית לקטגוריית <span className="font-bold text-slate-900">"אחרים"</span>, יאוחסן ב-<code>server_filter.json</code> ויתחיל במצב מופעל (ON) כברירת מחדל לסינון.
               </div>
             </div>
           )}

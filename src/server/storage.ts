@@ -165,42 +165,9 @@ export function normalizeServerFilter(sourceData: FilterData, existingFilter: Fi
 }
 
 /**
- * Seed initial catalog of Israeli artists if no source file exists yet
+ * Empty initial catalog - starts with no songs or artists
  */
-const INITIAL_SEED_DATA: FilterData = {
-  "מאיר אריאל": [
-    { "id": 101, "title": "נשל הנחש", "url": "https://genius.com/Meir-ariel-snake-skin-lyrics", "enabled": true },
-    { "id": 102, "title": "זרעי קיץ", "url": "https://genius.com/Meir-ariel-summer-seeds-lyrics", "enabled": true },
-    { "id": 103, "title": "שיר כאב", "url": "https://genius.com/Meir-ariel-shir-keev-lyrics", "enabled": false },
-    { "id": 104, "title": "אגדת דשא", "url": "https://genius.com/Meir-ariel-agadat-deshe-lyrics", "enabled": true },
-    { "id": 105, "title": "לילה שקט עבר על כוחותינו בסואץ", "url": "https://genius.com/Meir-ariel-layla-shaket-lyrics", "enabled": false },
-    { "id": 106, "title": "טרמינל לומינלט", "url": "https://genius.com/Meir-ariel-terminal-lyrics", "enabled": true },
-    { "id": 107, "title": "מודה אני", "url": "https://genius.com/Meir-ariel-mode-ani-lyrics", "enabled": true },
-    { "id": 108, "title": "פלוגה בקו", "url": "https://genius.com/Meir-ariel-plugah-lyrics", "enabled": false }
-  ],
-  "אריק איינשטיין": [
-    { "id": 201, "title": "עוף גוזל", "url": "https://genius.com/Arik-einstein-ouf-gozal-lyrics", "enabled": true },
-    { "id": 202, "title": "אני ואתה", "url": "https://genius.com/Arik-einstein-ani-veata-lyrics", "enabled": true },
-    { "id": 203, "title": "סע לאט", "url": "https://genius.com/Arik-einstein-sa-leat-lyrics", "enabled": false },
-    { "id": 204, "title": "יש בי אהבה", "url": "https://genius.com/Arik-einstein-yesh-bi-ahava-lyrics", "enabled": true },
-    { "id": 205, "title": "עטור מצחך זהב שחור", "url": "https://genius.com/Arik-einstein-ator-mizhecha-lyrics", "enabled": true },
-    { "id": 206, "title": "אוהב להיות בבית", "url": "https://genius.com/Arik-einstein-ohev-lihyot-lyrics", "enabled": false }
-  ],
-  "שלמה ארצי": [
-    { "id": 301, "title": "ירח", "url": "https://genius.com/Shlomo-artzi-yareach-lyrics", "enabled": true },
-    { "id": 302, "title": "תתארו לכם", "url": "https://genius.com/Shlomo-artzi-tearo-lachem-lyrics", "enabled": true },
-    { "id": 303, "title": "אהבתיה", "url": "https://genius.com/Shlomo-artzi-ahavtiha-lyrics", "enabled": false },
-    { "id": 304, "title": "שדות של אירוסים", "url": "https://genius.com/Shlomo-artzi-sadot-shel-irusim-lyrics", "enabled": false },
-    { "id": 305, "title": "חום יולי אוגוסט", "url": "https://genius.com/Shlomo-artzi-chom-yuli-august-lyrics", "enabled": true }
-  ],
-  "כוורת": [
-    { "id": 401, "title": "יו יה", "url": "https://genius.com/Kaveret-yo-ya-lyrics", "enabled": true },
-    { "id": 402, "title": "נתתי לה חיי", "url": "https://genius.com/Kaveret-natati-la-chayay-lyrics", "enabled": true },
-    { "id": 403, "title": "המגפיים של ברוך", "url": "https://genius.com/Kaveret-baruch-boots-lyrics", "enabled": false },
-    { "id": 404, "title": "שיר המכולת", "url": "https://genius.com/Kaveret-makolet-lyrics", "enabled": false },
-    { "id": 405, "title": "גוליית", "url": "https://genius.com/Kaveret-goliath-lyrics", "enabled": true }
-  ]
-};
+const INITIAL_SEED_DATA: FilterData = {};
 
 export class StorageService {
   private serverFilter: FilterData = {};
@@ -213,7 +180,7 @@ export class StorageService {
   public init(): void {
     // 1. Check or seed genius_songs.json
     if (!fs.existsSync(SOURCE_FILE)) {
-      console.log(`Creating initial ${SOURCE_FILE} with seed artists...`);
+      console.log(`Creating initial empty ${SOURCE_FILE}...`);
       saveJsonAtomic(SOURCE_FILE, INITIAL_SEED_DATA);
       this.sourceSongs = INITIAL_SEED_DATA;
     } else {
@@ -228,7 +195,7 @@ export class StorageService {
       const existingFilter = loadJsonSafe<FilterData>(SERVER_FILTER_FILE, {});
       this.serverFilter = normalizeServerFilter(cleanedSource, existingFilter);
     } else {
-      console.log(`Creating initial ${SERVER_FILTER_FILE}...`);
+      console.log(`Creating initial empty ${SERVER_FILTER_FILE}...`);
       this.serverFilter = normalizeServerFilter(cleanedSource, {});
     }
 
@@ -427,6 +394,9 @@ export class StorageService {
       });
 
       if (existing) {
+        existing.enabled = true;
+        saveJsonAtomic(SERVER_FILTER_FILE, this.serverFilter);
+        saveJsonAtomic(SOURCE_FILE, this.sourceSongs);
         return {
           success: true,
           alreadyExists: true,
@@ -440,7 +410,7 @@ export class StorageService {
         title: cleanTitle,
         url: songData.url,
         artist: songData.artist,
-        enabled: false
+        enabled: true // Single songs are added turned ON (enabled=true)
       };
 
       othersList.push(newSong);
@@ -449,7 +419,7 @@ export class StorageService {
       saveJsonAtomic(SERVER_FILTER_FILE, this.serverFilter);
       saveJsonAtomic(SOURCE_FILE, this.sourceSongs);
 
-      console.log(`[Storage] Added individual song "${newSong.title}" to "${OTHERS_KEY}" category`);
+      console.log(`[Storage] Added individual song "${newSong.title}" (enabled=true) to "${OTHERS_KEY}" category`);
 
       return {
         success: true,

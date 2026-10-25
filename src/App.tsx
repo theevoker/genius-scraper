@@ -302,6 +302,8 @@ export default function App({ forceView }: AppProps = {}) {
               onToggleSong={handleToggleSong}
               onBatchAction={handleBatchAction}
               isSaving={isSaving}
+              onOpenAddArtist={() => setIsAddArtistOpen(true)}
+              onOpenAddSong={() => setIsAddSongOpen(true)}
             />
           </main>
         </>
