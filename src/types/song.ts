@@ -2,6 +2,7 @@ export interface Song {
   id?: number | string;
   title: string;
   url?: string;
+  artist?: string;
   enabled?: boolean;
 }
 
@@ -13,6 +14,15 @@ export interface ScrapeArtistCandidate {
   url: string;
   alternate_names?: string[];
   similarityScore?: number;
+}
+
+export interface ScrapeSongCandidate {
+  id: number | string;
+  title: string;
+  fullTitle: string;
+  artistName: string;
+  url?: string;
+  thumbnail?: string;
 }
 
 export interface AddArtistResult {

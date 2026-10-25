@@ -992,5 +992,14 @@
       "url": "https://genius.com/Yonatan-razel-zion-lyrics",
       "enabled": false
     }
+  ],
+  "אחרים": [
+    {
+      "id": 999991,
+      "title": "שיר מיוחד ישיר",
+      "url": "https://genius.com/test",
+      "artist": "זמר אורח",
+      "enabled": false
+    }
   ]
 }

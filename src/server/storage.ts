@@ -403,6 +403,63 @@ export class StorageService {
     });
   }
 
+  /**
+   * Adds an individual song directly into the 'אחרים' (Others) category
+   */
+  public async addSongToOthers(songData: Song): Promise<{ success: boolean; alreadyExists: boolean; song: Song; data: FilterData }> {
+    return runWithLock(() => {
+      const OTHERS_KEY = 'אחרים';
+      if (!this.serverFilter[OTHERS_KEY]) {
+        this.serverFilter[OTHERS_KEY] = [];
+      }
+      if (!this.sourceSongs[OTHERS_KEY]) {
+        this.sourceSongs[OTHERS_KEY] = [];
+      }
+
+      const othersList = this.serverFilter[OTHERS_KEY];
+      const cleanTitle = cleanHebrewWithSpaces(songData.title) || songData.title.trim();
+      const songIdStr = songData.id != null ? String(songData.id) : null;
+
+      // Check duplicate in 'אחרים'
+      const existing = othersList.find(s => {
+        if (songIdStr && s.id != null && String(s.id) === songIdStr) return true;
+        return cleanHebrewWithSpaces(s.title) === cleanTitle;
+      });
+
+      if (existing) {
+        return {
+          success: true,
+          alreadyExists: true,
+          song: existing,
+          data: this.serverFilter
+        };
+      }
+
+      const newSong: Song = {
+        id: songData.id,
+        title: cleanTitle,
+        url: songData.url,
+        artist: songData.artist,
+        enabled: false
+      };
+
+      othersList.push(newSong);
+      this.sourceSongs[OTHERS_KEY].push(newSong);
+
+      saveJsonAtomic(SERVER_FILTER_FILE, this.serverFilter);
+      saveJsonAtomic(SOURCE_FILE, this.sourceSongs);
+
+      console.log(`[Storage] Added individual song "${newSong.title}" to "${OTHERS_KEY}" category`);
+
+      return {
+        success: true,
+        alreadyExists: false,
+        song: newSong,
+        data: this.serverFilter
+      };
+    });
+  }
+
   public getRawFiles(): { sourceFile: string; filterFile: string } {
     return {
       sourceFile: SOURCE_FILE,

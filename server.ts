@@ -6,6 +6,8 @@ import { storage } from './src/server/storage.js';
 import {
   searchGeniusArtists,
   chooseBestArtist,
+  scoreArtistCandidates,
+  searchGeniusSongs,
   getAllSongsForArtist,
   cleanHebrewWithSpaces
 } from './src/server/geniusScraper.js';
@@ -133,9 +135,46 @@ async function startServer() {
     });
   });
 
-  // 4. Scrape and add a new artist from Genius
+  // 3b. Search Genius for artist candidates ("Did you mean this?" step)
+  app.post('/api/artist/search-candidates', async (req: Request, res: Response) => {
+    const { query } = req.body;
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ error: 'Please provide an artist search term' });
+    }
+
+    const trimmed = query.trim();
+    const cleanQuery = cleanHebrewWithSpaces(trimmed) || trimmed;
+    const alreadyExists = storage.hasArtist(cleanQuery);
+    const data = storage.getData();
+    let existingCount = 0;
+    if (alreadyExists) {
+      for (const [key, songs] of Object.entries(data)) {
+        if (cleanHebrewWithSpaces(key) === cleanQuery) {
+          existingCount = songs.length;
+          break;
+        }
+      }
+    }
+
+    try {
+      const rawCandidates = await searchGeniusArtists(trimmed);
+      const rankedCandidates = scoreArtistCandidates(trimmed, rawCandidates);
+
+      return res.json({
+        query: trimmed,
+        alreadyExists,
+        existingCount,
+        candidates: rankedCandidates
+      });
+    } catch (err: any) {
+      console.error('Error finding artist candidates:', err);
+      return res.status(500).json({ error: err.message || 'Failed to search Genius candidates' });
+    }
+  });
+
+  // 4. Scrape and add a new artist from Genius (supports direct artistId from "Did you mean" or name)
   app.post('/api/artist/add', async (req: Request, res: Response) => {
-    const { artistName, force } = req.body;
+    const { artistName, artistId, force } = req.body;
     if (!artistName || typeof artistName !== 'string' || !artistName.trim()) {
       return res.status(400).json({ error: 'Please provide a valid artist name' });
     }
@@ -157,38 +196,42 @@ async function startServer() {
       });
     }
 
-    console.log(`Starting scrape for artist: "${trimmedName}"...`);
+    console.log(`Starting scrape for artist: "${trimmedName}" (ID: ${artistId || 'auto'})...`);
 
     try {
-      // 1. Search Genius
-      const candidates = await searchGeniusArtists(trimmedName);
-      if (candidates.length === 0) {
-        return res.status(404).json({
-          error: `No artist candidates found on Genius for "${trimmedName}". Check spelling or try Hebrew/English.`
-        });
+      let resolvedId = artistId;
+      let targetArtistName = cleanName;
+
+      // If artistId was not provided, search and pick best candidate
+      if (!resolvedId) {
+        const candidates = await searchGeniusArtists(trimmedName);
+        if (candidates.length === 0) {
+          return res.status(404).json({
+            error: `No artist candidates found on Genius for "${trimmedName}". Check spelling or try Hebrew/English.`
+          });
+        }
+
+        const bestCandidate = chooseBestArtist(trimmedName, candidates);
+        if (!bestCandidate) {
+          return res.status(404).json({
+            error: `Could not identify an artist match for "${trimmedName}".`
+          });
+        }
+        resolvedId = bestCandidate.id;
+        targetArtistName = cleanHebrewWithSpaces(bestCandidate.name) || cleanName;
       }
 
-      // 2. Select best candidate
-      const bestCandidate = chooseBestArtist(trimmedName, candidates);
-      if (!bestCandidate) {
-        return res.status(404).json({
-          error: `Could not identify an artist match for "${trimmedName}".`
-        });
-      }
+      console.log(`Fetching all songs for ID: ${resolvedId}...`);
 
-      console.log(`Matched candidate: "${bestCandidate.name}" (ID: ${bestCandidate.id})`);
-
-      // 3. Fetch all songs
-      const songs = await getAllSongsForArtist(bestCandidate.id);
+      // Fetch all songs
+      const songs = await getAllSongsForArtist(resolvedId);
       if (songs.length === 0) {
         return res.status(404).json({
-          error: `Found artist "${bestCandidate.name}" on Genius, but no songs could be retrieved.`
+          error: `Found artist on Genius, but no songs could be retrieved.`
         });
       }
 
-      const targetArtistName = cleanHebrewWithSpaces(bestCandidate.name) || cleanName;
-
-      // 4. Save into source and normalized filter
+      // Save into source and normalized filter
       const updatedData = await storage.addScrapedArtist(targetArtistName, songs);
 
       console.log(`Successfully scraped and saved ${songs.length} songs for "${targetArtistName}".`);
@@ -206,6 +249,70 @@ async function startServer() {
       return res.status(500).json({
         error: err.message || `Failed to scrape artist "${trimmedName}" from Genius`
       });
+    }
+  });
+
+  // 5. Search Genius for individual songs ("Did you mean this song?" step)
+  app.post('/api/song/search-candidates', async (req: Request, res: Response) => {
+    const { query } = req.body;
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ error: 'Please provide a song search term' });
+    }
+
+    try {
+      const candidates = await searchGeniusSongs(query.trim());
+      const data = storage.getData();
+      const others = data['אחרים'] || [];
+
+      // Check which candidates already exist in 'אחרים'
+      const enriched = candidates.map(c => {
+        const exists = others.some(
+          o => (c.id != null && o.id != null && String(o.id) === String(c.id)) ||
+               cleanHebrewWithSpaces(o.title) === cleanHebrewWithSpaces(c.title)
+        );
+        return {
+          ...c,
+          alreadyInOthers: exists
+        };
+      });
+
+      return res.json({
+        query: query.trim(),
+        candidates: enriched
+      });
+    } catch (err: any) {
+      console.error('Error finding song candidates:', err);
+      return res.status(500).json({ error: err.message || 'Failed to search songs on Genius' });
+    }
+  });
+
+  // 6. Directly add a song into the 'אחרים' (Others) category
+  app.post('/api/song/add-direct', async (req: Request, res: Response) => {
+    const { song } = req.body;
+    if (!song || !song.title) {
+      return res.status(400).json({ error: 'Song must include a valid title' });
+    }
+
+    try {
+      const result = await storage.addSongToOthers({
+        id: song.id,
+        title: song.title,
+        url: song.url,
+        artist: song.artistName || song.artist
+      });
+
+      return res.json({
+        success: true,
+        alreadyExists: result.alreadyExists,
+        song: result.song,
+        data: result.data,
+        message: result.alreadyExists
+          ? `השיר "${result.song.title}" כבר קיים בקטגוריית "אחרים"`
+          : `השיר "${result.song.title}" נוסף בהצלחה לקטגוריית "אחרים"`
+      });
+    } catch (err: any) {
+      console.error('Error adding song to others:', err);
+      return res.status(500).json({ error: err.message || 'Failed to add song to others' });
     }
   });
 
@@ -251,6 +358,16 @@ async function startServer() {
       totalSongs,
       enabledSongs
     });
+  });
+
+  // Support /portrait and /portrait.html routes directly
+  app.get(['/portrait', '/portrait.html'], (req: Request, res: Response, next) => {
+    if (!isProd) {
+      req.url = '/portrait.html';
+      return next();
+    } else {
+      return res.sendFile(path.resolve(__dirname, 'dist', 'portrait.html'));
+    }
   });
 
   // Mount Vite or static server

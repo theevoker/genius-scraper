@@ -2,19 +2,69 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header.js';
 import { ArtistBar } from './components/ArtistBar.js';
 import { SongsFilterView } from './components/SongsFilterView.js';
+import { PortraitView } from './components/PortraitView.js';
 import { AddArtistModal } from './components/AddArtistModal.js';
+import { AddSongModal } from './components/AddSongModal.js';
 import { ExportModal } from './components/ExportModal.js';
-import { FilterData } from './types/song.js';
+import { FilterData, Song } from './types/song.js';
 
-export default function App() {
+interface AppProps {
+  forceView?: 'portrait' | 'landscape';
+}
+
+export default function App({ forceView }: AppProps = {}) {
   const [data, setData] = useState<FilterData>({});
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [status, setStatus] = useState<'connected' | 'saving' | 'error'>('connected');
   const [isAddArtistOpen, setIsAddArtistOpen] = useState(false);
+  const [isAddSongOpen, setIsAddSongOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(new Date());
   const isInitialLoad = useRef(true);
+
+  // View mode preference
+  const [userViewMode, setUserViewMode] = useState<'auto' | 'portrait' | 'landscape'>(() => {
+    if (forceView) return forceView;
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('view') === 'portrait' || window.location.pathname.includes('portrait')) {
+        return 'portrait';
+      }
+      const saved = localStorage.getItem('preferred_view_mode');
+      if (saved === 'portrait' || saved === 'landscape') return saved;
+    }
+    return 'auto';
+  });
+
+  // Device orientation / screen size detection
+  const [isDevicePortrait, setIsDevicePortrait] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(orientation: portrait)').matches || window.innerWidth <= 768;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(orientation: portrait)');
+    const handleResize = () => {
+      setIsDevicePortrait(mql.matches || window.innerWidth <= 768);
+    };
+    mql.addEventListener('change', handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      mql.removeEventListener('change', handleResize);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const activeView = userViewMode === 'auto'
+    ? (isDevicePortrait ? 'portrait' : 'landscape')
+    : userViewMode;
+
+  const handleSetViewMode = (mode: 'portrait' | 'landscape') => {
+    setUserViewMode(mode);
+    localStorage.setItem('preferred_view_mode', mode);
+  };
 
   // Load server filter state with anti-caching timestamp
   const loadData = useCallback(async (isPolling: boolean = false) => {
@@ -183,6 +233,15 @@ export default function App() {
     setStatus('connected');
   };
 
+  // When an individual song is added to 'others' category
+  const handleSongAdded = (newSong: Song, updatedData: FilterData) => {
+    setData(updatedData);
+    setSelectedArtist('אחרים');
+    localStorage.setItem('last_selected_artist', 'אחרים');
+    setLastSavedTime(new Date());
+    setStatus('connected');
+  };
+
   const artists = Object.keys(data);
   const currentSongs = selectedArtist && data[selectedArtist] ? data[selectedArtist] : [];
 
@@ -196,37 +255,59 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans" dir="rtl">
-      {/* 1. Header with Add Artist in top right and Export/Download */}
-      <Header
-        onOpenAddArtist={() => setIsAddArtistOpen(true)}
-        onOpenExport={() => setIsExportOpen(true)}
-        status={status}
-        artistCount={artists.length}
-        totalSongs={totalSongs}
-        enabledSongs={enabledSongs}
-        filterData={data}
-      />
-
-      {/* 2. Top Artist Bar with search field and dropdown selector */}
-      <ArtistBar
-        artists={artists}
-        filterData={data}
-        selectedArtist={selectedArtist}
-        onSelectArtist={handleSelectArtist}
-      />
-
-      {/* 3. Main Songs Filter View */}
-      <main className="flex-1 flex flex-col min-h-0">
-        <SongsFilterView
+      {/* RENDER VIEW ACCORDING TO VIEW MODE: PORTRAIT OR LANDSCAPE */}
+      {activeView === 'portrait' ? (
+        <PortraitView
+          data={data}
+          artists={artists}
           selectedArtist={selectedArtist}
-          songs={currentSongs}
+          onSelectArtist={handleSelectArtist}
           onToggleSong={handleToggleSong}
           onBatchAction={handleBatchAction}
+          onOpenAddArtist={() => setIsAddArtistOpen(true)}
+          onOpenAddSong={() => setIsAddSongOpen(true)}
+          onOpenExport={() => setIsExportOpen(true)}
+          status={status}
           isSaving={isSaving}
+          onSwitchToLandscape={() => handleSetViewMode('landscape')}
         />
-      </main>
+      ) : (
+        <>
+          {/* 1. Header with Add Artist, Add Song, Export, and View Mode Toggle */}
+          <Header
+            onOpenAddArtist={() => setIsAddArtistOpen(true)}
+            onOpenAddSong={() => setIsAddSongOpen(true)}
+            onOpenExport={() => setIsExportOpen(true)}
+            status={status}
+            artistCount={artists.length}
+            totalSongs={totalSongs}
+            enabledSongs={enabledSongs}
+            filterData={data}
+            onSwitchToPortrait={() => handleSetViewMode('portrait')}
+          />
 
-      {/* 4. Add Artist Scrape Modal */}
+          {/* 2. Top Artist Bar with search field and dropdown selector */}
+          <ArtistBar
+            artists={artists}
+            filterData={data}
+            selectedArtist={selectedArtist}
+            onSelectArtist={handleSelectArtist}
+          />
+
+          {/* 3. Main Songs Filter View */}
+          <main className="flex-1 flex flex-col min-h-0">
+            <SongsFilterView
+              selectedArtist={selectedArtist}
+              songs={currentSongs}
+              onToggleSong={handleToggleSong}
+              onBatchAction={handleBatchAction}
+              isSaving={isSaving}
+            />
+          </main>
+        </>
+      )}
+
+      {/* 4. Add Artist Scrape Modal with 'Did you mean this' step */}
       <AddArtistModal
         isOpen={isAddArtistOpen}
         onClose={() => setIsAddArtistOpen(false)}
@@ -235,7 +316,15 @@ export default function App() {
         onArtistAdded={handleArtistAdded}
       />
 
-      {/* 5. Export / Download JSON Modal */}
+      {/* 5. Add Song Directly to 'Others' Modal with 'Did you mean this' step */}
+      <AddSongModal
+        isOpen={isAddSongOpen}
+        onClose={() => setIsAddSongOpen(false)}
+        filterData={data}
+        onSongAdded={handleSongAdded}
+      />
+
+      {/* 6. Export / Download JSON Modal (Shared across both portrait and landscape) */}
       <ExportModal
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}

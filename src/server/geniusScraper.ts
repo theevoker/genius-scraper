@@ -187,10 +187,10 @@ export async function searchGeniusArtists(query: string): Promise<ScrapeArtistCa
 }
 
 /**
- * Chooses the best artist candidate according to similarity score
+ * Ranks all artist candidates by similarity to the user's query
  */
-export function chooseBestArtist(requestedName: string, candidates: ScrapeArtistCandidate[]): ScrapeArtistCandidate | null {
-  if (!candidates || candidates.length === 0) return null;
+export function scoreArtistCandidates(requestedName: string, candidates: ScrapeArtistCandidate[]): ScrapeArtistCandidate[] {
+  if (!candidates || candidates.length === 0) return [];
 
   const scored = candidates.map(artist => {
     let score = artistSimilarity(requestedName, artist.name);
@@ -207,7 +207,49 @@ export function chooseBestArtist(requestedName: string, candidates: ScrapeArtist
   });
 
   scored.sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0));
-  return scored[0];
+  return scored;
+}
+
+/**
+ * Chooses the best artist candidate according to similarity score
+ */
+export function chooseBestArtist(requestedName: string, candidates: ScrapeArtistCandidate[]): ScrapeArtistCandidate | null {
+  const ranked = scoreArtistCandidates(requestedName, candidates);
+  return ranked.length > 0 ? ranked[0] : null;
+}
+
+/**
+ * Search Genius for individual songs (for the "Add Song to Others" feature)
+ */
+export async function searchGeniusSongs(query: string): Promise<any[]> {
+  const songs: any[] = [];
+  try {
+    const url = `${BASE_URL}/search?q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, {
+      headers: GENIUS_API_HEADERS,
+      signal: AbortSignal.timeout(15000)
+    });
+    if (res.ok) {
+      const json: any = await res.json();
+      const hits = json?.response?.hits || [];
+      for (const hit of hits) {
+        if (hit.type === 'song' && hit.result) {
+          const r = hit.result;
+          songs.push({
+            id: r.id,
+            title: cleanHebrewWithSpaces(r.title) || r.title,
+            fullTitle: r.full_title || `${r.title} - ${r.primary_artist?.name}`,
+            artistName: r.primary_artist?.name || 'אמן לא ידוע',
+            url: r.url,
+            thumbnail: r.song_art_image_thumbnail_url
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error searching Genius songs:', err);
+  }
+  return songs;
 }
 
 /**

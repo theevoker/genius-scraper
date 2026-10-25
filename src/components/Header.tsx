@@ -1,26 +1,30 @@
 import React, { useState } from 'react';
-import { UserPlus, Download, Check, FileJson, Music, Disc3 } from 'lucide-react';
+import { UserPlus, Download, Check, FileJson, Music, Disc3, Smartphone, PlusCircle } from 'lucide-react';
 import { FilterData } from '../types/song.js';
 import { downloadJsonFile } from '../utils/download.js';
 
 interface HeaderProps {
   onOpenAddArtist: () => void;
+  onOpenAddSong: () => void;
   onOpenExport: () => void;
   status: 'connected' | 'saving' | 'error';
   artistCount: number;
   totalSongs: number;
   enabledSongs: number;
   filterData: FilterData;
+  onSwitchToPortrait?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddArtist,
+  onOpenAddSong,
   onOpenExport,
   status,
   artistCount,
   totalSongs,
   enabledSongs,
-  filterData
+  filterData,
+  onSwitchToPortrait
 }) => {
   const [downloadingFilter, setDownloadingFilter] = useState(false);
   const [downloadingSource, setDownloadingSource] = useState(false);
@@ -54,13 +58,26 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={onOpenAddArtist}
-            className="group relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-indigo-500/25 transition-all duration-200 cursor-pointer active:scale-95"
+            className="group relative inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-indigo-500/25 transition-all duration-200 cursor-pointer active:scale-95"
             title="סרוק והוסף אמן חדש ללא איפוס הסינון הקיים"
           >
             <UserPlus className="w-4 h-4 transition-transform group-hover:scale-110" />
             <span>הוסף אמן</span>
             <span className="hidden sm:inline-block bg-white/20 text-[11px] px-1.5 py-0.5 rounded-md font-mono">
               Genius
+            </span>
+          </button>
+
+          {/* Add Song directly button */}
+          <button
+            onClick={onOpenAddSong}
+            className="group relative inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md hover:shadow-emerald-500/25 transition-all duration-200 cursor-pointer active:scale-95"
+            title="הוסף שיר בודד ישירות לקטגוריית 'אחרים'"
+          >
+            <PlusCircle className="w-4 h-4 transition-transform group-hover:scale-110" />
+            <span>הוסף שיר</span>
+            <span className="hidden sm:inline-block bg-white/20 text-[11px] px-1.5 py-0.5 rounded-md font-mono">
+              אחרים
             </span>
           </button>
 
@@ -92,6 +109,17 @@ export const Header: React.FC<HeaderProps> = ({
               <FileJson className="w-3.5 h-3.5 text-slate-400" />
               <span className="hidden sm:inline">ייצוא מלא...</span>
             </button>
+
+            {onSwitchToPortrait && (
+              <button
+                onClick={onSwitchToPortrait}
+                className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-colors border border-slate-700/60 cursor-pointer"
+                title="עבור לתצוגת מסך לאורך (Portrait)"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden md:inline">תצוגת מסך לאורך</span>
+              </button>
+            )}
           </div>
         </div>
 
